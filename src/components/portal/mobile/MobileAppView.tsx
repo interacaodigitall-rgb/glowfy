@@ -260,7 +260,7 @@ export const MobileAppView: React.FC<MobileAppViewProps> = ({
     }
   };
 
-  // Check available slots specifically for rescheduling
+  // Check available slots specifically for rescheduling (ignoring the current appointment being rescheduled)
   const getRescheduleAvailableSlots = React.useCallback((targetDate: string, targetProId?: string, excludeAppId?: string): string[] => {
     if (!targetDate) return [];
     if (isDayClosed(targetDate)) return [];
@@ -308,10 +308,21 @@ export const MobileAppView: React.FC<MobileAppViewProps> = ({
         }
       }
 
-      // Check conflicts with other existing appointments
+      // Check manually blocked times on this date
+      if (tenant?.blockedTimes && tenant.blockedTimes.length > 0) {
+        const isTimeBlocked = tenant.blockedTimes.some(b => b.date === targetDate && slot >= b.start && slot < b.end);
+        if (isTimeBlocked) {
+          continue;
+        }
+      }
+
+      // Check conflicts with OTHER existing appointments (ignoring excludeAppId)
       const hasConflict = existingAppointments.some(app => {
+        // 1. Ignore the current appointment being rescheduled
         if (app.id === excludeAppId) return false;
+        // 2. Ignore cancelled appointments
         if (app.status === 'cancelled') return false;
+        // 3. Ignore appointments of other professionals
         if (targetProId && app.professionalId && app.professionalId !== targetProId) return false;
 
         let appDate = '';
@@ -328,7 +339,25 @@ export const MobileAppView: React.FC<MobileAppViewProps> = ({
           appTime = appAny.time || '';
         }
 
-        return appDate === targetDate && appTime === slot;
+        if (appDate !== targetDate) return false;
+
+        // Exact time match
+        if (appTime === slot) return true;
+
+        // Interval overlap for multi-slot bookings
+        if (app.startAt && app.endAt) {
+          const appStartMs = new Date(app.startAt).getTime();
+          const appEndMs = new Date(app.endAt).getTime();
+          const slotStartMs = new Date(`${targetDate}T${slot}:00`).getTime();
+          const slotEndMs = slotStartMs + 30 * 60 * 1000;
+          if (!isNaN(appStartMs) && !isNaN(appEndMs) && !isNaN(slotStartMs)) {
+            if (slotStartMs < appEndMs && slotEndMs > appStartMs) {
+              return true;
+            }
+          }
+        }
+
+        return false;
       });
 
       if (!hasConflict) {
@@ -1782,9 +1811,14 @@ export const MobileAppView: React.FC<MobileAppViewProps> = ({
                                   onClick={() => {
                                     setRescheduleApp(app);
                                     const appDate = getAppointmentDateKey(app) || formatLocalDate(new Date());
+                                    const appTime = getAppointmentTimeStr(app.startAt);
                                     setNewReschedDate(appDate);
                                     const available = getRescheduleAvailableSlots(appDate, app.professionalId, app.id);
-                                    setNewReschedTime(available[0] || '10:00');
+                                    if (available.includes(appTime)) {
+                                      setNewReschedTime(appTime);
+                                    } else {
+                                      setNewReschedTime(available[0] || '');
+                                    }
                                   }}
                                   className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold transition-colors"
                                 >
@@ -2543,7 +2577,13 @@ export const MobileAppView: React.FC<MobileAppViewProps> = ({
                     const nextDate = e.target.value;
                     setNewReschedDate(nextDate);
                     const slots = getRescheduleAvailableSlots(nextDate, rescheduleApp.professionalId, rescheduleApp.id);
-                    if (slots.length > 0) {
+                    const origDate = getAppointmentDateKey(rescheduleApp);
+                    const origTime = getAppointmentTimeStr(rescheduleApp.startAt);
+                    if (nextDate === origDate && slots.includes(origTime)) {
+                      setNewReschedTime(origTime);
+                    } else if (slots.includes(newReschedTime)) {
+                      // Keep selected time if free on new date
+                    } else if (slots.length > 0) {
                       setNewReschedTime(slots[0]);
                     } else {
                       setNewReschedTime('');

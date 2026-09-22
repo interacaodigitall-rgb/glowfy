@@ -51,6 +51,72 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
   const [isRescheduling, setIsRescheduling] = useState<boolean>(false);
   const [rescheduleError, setRescheduleError] = useState<string>('');
 
+  const getMerchantRescheduleSlots = (date: string, proId?: string, excludeId?: string): string[] => {
+    if (!date || !currentTenant) return [];
+    const dateObj = new Date(date + 'T12:00:00');
+    const dayOfWeek = dateObj.getDay();
+    const defaultHours = { active: dayOfWeek !== 0, start: '09:00', end: '20:30' };
+    const dayHours = currentTenant.workingHours 
+      ? (currentTenant.workingHours[dayOfWeek] || (currentTenant.workingHours as any)[String(dayOfWeek)] || defaultHours) 
+      : defaultHours;
+
+    if (!dayHours || !dayHours.active) return [];
+
+    const [sH, sM] = (dayHours.start || '09:00').split(':').map(Number);
+    const [eH, eM] = (dayHours.end || '20:30').split(':').map(Number);
+    const startMin = (isNaN(sH) ? 9 : sH) * 60 + (isNaN(sM) ? 0 : sM);
+    const endMin = (isNaN(eH) ? 20 : eH) * 60 + (isNaN(eM) ? 30 : eM);
+
+    const slots: string[] = [];
+    for (let m = startMin; m < endMin; m += 30) {
+      const hh = String(Math.floor(m / 60)).padStart(2, '0');
+      const mm = String(m % 60).padStart(2, '0');
+      const slot = `${hh}:${mm}`;
+
+      const dHours = dayHours as any;
+      if (dHours.breakStart && dHours.breakEnd) {
+        if (slot >= dHours.breakStart && slot < dHours.breakEnd) continue;
+      }
+
+      // Check conflicts with other existing appointments (excluding current appointment being rescheduled)
+      const hasConflict = appointments.some(app => {
+        if (app.id === excludeId) return false;
+        if (app.status === 'cancelled') return false;
+        if (proId && app.professionalId && app.professionalId !== proId) return false;
+
+        let appDate = '';
+        let appTime = '';
+        if (app.startAt) {
+          if (app.startAt.includes('T')) {
+            appDate = app.startAt.split('T')[0];
+            const parts = app.startAt.split('T')[1];
+            if (parts) appTime = parts.slice(0, 5);
+          }
+        }
+        if (appDate !== date) return false;
+        if (appTime === slot) return true;
+
+        if (app.startAt && app.endAt) {
+          const appStartMs = new Date(app.startAt).getTime();
+          const appEndMs = new Date(app.endAt).getTime();
+          const slotStartMs = new Date(`${date}T${slot}:00`).getTime();
+          const slotEndMs = slotStartMs + 30 * 60 * 1000;
+          if (!isNaN(appStartMs) && !isNaN(appEndMs) && !isNaN(slotStartMs)) {
+            if (slotStartMs < appEndMs && slotEndMs > appStartMs) {
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+
+      if (!hasConflict) {
+        slots.push(slot);
+      }
+    }
+    return slots;
+  };
+
   const handleOpenReschedule = (app: Appointment) => {
     setReschedulingApp(app);
     setRescheduleDate(getAppointmentDateKey(app));
@@ -845,7 +911,20 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
                     type="date"
                     required
                     value={rescheduleDate}
-                    onChange={(e) => setRescheduleDate(e.target.value)}
+                    onChange={(e) => {
+                      const nextDate = e.target.value;
+                      setRescheduleDate(nextDate);
+                      const slots = getMerchantRescheduleSlots(nextDate, reschedulingApp.professionalId, reschedulingApp.id);
+                      const origDate = getAppointmentDateKey(reschedulingApp);
+                      const origTime = getAppointmentTimeStr(reschedulingApp.startAt);
+                      if (nextDate === origDate && slots.includes(origTime)) {
+                        setRescheduleTime(origTime);
+                      } else if (slots.includes(rescheduleTime)) {
+                        // keep current selected time if valid on new date
+                      } else if (slots.length > 0) {
+                        setRescheduleTime(slots[0]);
+                      }
+                    }}
                     className="w-full bg-white border border-gray-300 text-[#111827] rounded-lg p-2 font-medium focus:border-[#C5A059] focus:outline-none"
                   />
                 </div>
@@ -860,6 +939,30 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
                   />
                 </div>
               </div>
+
+              {rescheduleDate && (
+                <div>
+                  <label className="block text-gray-500 font-semibold mb-1">
+                    Horários Livres no Dia ({getMerchantRescheduleSlots(rescheduleDate, reschedulingApp.professionalId, reschedulingApp.id).length} disponíveis):
+                  </label>
+                  <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto p-1.5 bg-gray-50 rounded-lg border border-gray-200">
+                    {getMerchantRescheduleSlots(rescheduleDate, reschedulingApp.professionalId, reschedulingApp.id).map(slot => (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => setRescheduleTime(slot)}
+                        className={`px-2 py-0.5 rounded text-[11px] font-mono transition-colors ${
+                          rescheduleTime === slot 
+                            ? 'bg-[#C5A059] text-white font-bold' 
+                            : 'bg-white hover:bg-gray-100 text-gray-700 border border-gray-300'
+                        }`}
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end space-x-2 pt-2 text-xs">
