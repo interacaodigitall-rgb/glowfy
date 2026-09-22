@@ -148,7 +148,14 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
 
       await rescheduleAppointment(currentTenant.id, reschedulingApp.id, startAtIso, endAtIso);
       
-      setAppointments(prev => prev.map(a => a.id === reschedulingApp.id ? { ...a, startAt: startAtIso, endAt: endAtIso, status: 'confirmed' } : a));
+      setAppointments(prev => prev.map(a => a.id === reschedulingApp.id ? { 
+        ...a, 
+        startAt: startAtIso, 
+        endAt: endAtIso, 
+        date: rescheduleDate, 
+        time: rescheduleTime, 
+        status: 'confirmed' 
+      } : a));
       setReschedulingApp(null);
     } catch (e: any) {
       setRescheduleError(e.message || "Erro ao remarcar. Verifique se o horário está livre.");
@@ -198,11 +205,12 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
   // Helper to accurately extract the local YYYY-MM-DD from any appointment without timezone shift
   const getAppointmentDateKey = (app: Appointment | any): string => {
     if (!app) return '';
+    if (app.startAt && typeof app.startAt === 'string' && app.startAt.includes('T')) {
+      return app.startAt.split('T')[0];
+    }
     if (app.date) return app.date;
-    if (app.startAt) {
-      if (app.startAt.includes('T')) {
-        return app.startAt.split('T')[0];
-      }
+    if (app.startAt && typeof app.startAt === 'string') {
+      return app.startAt.slice(0, 10);
     }
     return '';
   };

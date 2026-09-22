@@ -187,10 +187,42 @@ export async function rescheduleAppointment(
     throw new Error("HORARIO_OCUPADO: Este profissional já possui uma reserva ativa neste horário.");
   }
 
+  const newDate = newStartAt.includes('T') ? newStartAt.split('T')[0] : '';
+  const newTime = newStartAt.includes('T') ? newStartAt.split('T')[1].slice(0, 5) : '';
+
   app.startAt = newStartAt;
   app.endAt = newEndAt;
+  if (newDate) {
+    (app as any).date = newDate;
+  }
+  if (newTime) {
+    (app as any).time = newTime;
+  }
   app.status = 'confirmed';
+  (app as any).updatedAt = new Date().toISOString();
+
   await cloudDbSet(`tenants/${tenantId}/appointments/${appointmentId}`, app);
+
+  // Dispatch real-time notification to Firestore in 'notifications' collection
+  try {
+    const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const formattedDate = newDate || new Date(newStartAt).toLocaleDateString('pt-PT');
+    const formattedTime = newTime || new Date(newStartAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    
+    await cloudDbSet(`tenants/${tenantId}/notifications/${notifId}`, {
+      id: notifId,
+      tenantId,
+      professionalId: app.professionalId,
+      type: 'appointment_rescheduled',
+      title: `Agendamento Reagendado: ${app.serviceName}`,
+      message: `${app.clientName || 'Cliente'} remarcou para ${formattedDate} às ${formattedTime}`,
+      read: false,
+      appointmentId,
+      createdAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.warn("Could not dispatch reschedule notification:", err);
+  }
 }
 
 export { createAppointmentTransactional as createTransactionalAppointment };

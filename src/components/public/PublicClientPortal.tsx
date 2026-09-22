@@ -6,7 +6,8 @@ import { fetchProducts } from '../../features/products/productsService';
 import { 
   createTransactionalAppointment, 
   fetchTenantAppointments,
-  updateAppointmentStatus
+  updateAppointmentStatus,
+  rescheduleAppointment
 } from '../../features/appointments/appointmentService';
 import { Service, Professional, Appointment, Product } from '../../types';
 import { MobileAppView } from '../portal/mobile/MobileAppView';
@@ -154,10 +155,19 @@ export const PublicClientPortal: React.FC<PublicClientPortalProps> = ({
   const handleRescheduleAppointment = async (appId: string, newStartAt: string, newEndAt: string) => {
     if (!currentTenant) return;
     try {
-      await updateAppointmentStatus(currentTenant.id, appId, 'confirmed');
-      setAppointments(prev => prev.map(a => a.id === appId ? { ...a, startAt: newStartAt, endAt: newEndAt, status: 'confirmed' } : a));
+      await rescheduleAppointment(currentTenant.id, appId, newStartAt, newEndAt);
+      const newDate = newStartAt.includes('T') ? newStartAt.split('T')[0] : '';
+      const newTime = newStartAt.includes('T') ? newStartAt.split('T')[1].slice(0, 5) : '';
+      setAppointments(prev => prev.map(a => a.id === appId ? { 
+        ...a, 
+        startAt: newStartAt, 
+        endAt: newEndAt, 
+        date: newDate || (a as any).date, 
+        time: newTime || (a as any).time, 
+        status: 'confirmed' 
+      } : a));
     } catch (err) {
-      console.warn("Failed to reschedule appointment:", err);
+      console.warn("Failed to reschedule appointment in Firestore:", err);
       setAppointments(prev => prev.map(a => a.id === appId ? { ...a, startAt: newStartAt, endAt: newEndAt, status: 'confirmed' } : a));
     }
   };
