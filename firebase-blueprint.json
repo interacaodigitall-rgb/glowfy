@@ -1,0 +1,137 @@
+{
+  "entities": {
+    "Tenant": {
+      "title": "Tenant",
+      "description": "Multi-tenant business entity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "businessType": { 
+          "type": "string", 
+          "enum": ["barbershop", "beauty_salon", "nail_salon", "aesthetic_clinic", "spa", "lash_brow", "makeup", "massage", "beauty_professional", "other"] 
+        },
+        "logoUrl": { "type": "string" },
+        "primaryColor": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "slug", "businessType", "active"]
+    },
+    "Member": {
+      "title": "Tenant Member",
+      "description": "Membership mapping tenant to UID and role",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "role": { "type": "string", "enum": ["super_admin", "owner", "manager", "receptionist", "professional", "client"] },
+        "permissions": { "type": "array" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "joinedAt": { "type": "string" }
+      },
+      "required": ["uid", "tenantId", "role"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Booked service appointment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "professionalName": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "startAt": { "type": "string" },
+        "endAt": { "type": "string" },
+        "price": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "checked_in", "in_progress", "completed", "cancelled", "no_show"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["tenantId", "serviceId", "professionalId", "startAt", "endAt", "status"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Offered beauty/aesthetic service",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "name": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "price": { "type": "number" },
+        "durationMinutes": { "type": "number" },
+        "commissionPercentage": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["tenantId", "name", "price", "durationMinutes"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Retail or professional product item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "price": { "type": "number" },
+        "costPrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "categoryId": { "type": "string" }
+      },
+      "required": ["tenantId", "name", "price", "stock"]
+    },
+    "CashRegister": {
+      "title": "Cash Register",
+      "description": "Daily cash drawer instance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "openedBy": { "type": "string" },
+        "openedAt": { "type": "string" },
+        "initialAmount": { "type": "number" },
+        "currentAmount": { "type": "number" },
+        "closedAt": { "type": "string" },
+        "closedBy": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "closed"] }
+      },
+      "required": ["tenantId", "openedBy", "initialAmount", "status"]
+    }
+  },
+  "firestore": {
+    "/tenants/{tenantId}": {
+      "schema": "Tenant",
+      "description": "Tenants collection"
+    },
+    "/tenants/{tenantId}/members/{memberId}": {
+      "schema": "Member",
+      "description": "Tenant membership"
+    },
+    "/tenants/{tenantId}/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Tenant appointments"
+    },
+    "/tenants/{tenantId}/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Tenant services"
+    },
+    "/tenants/{tenantId}/products/{productId}": {
+      "schema": "Product",
+      "description": "Tenant products"
+    },
+    "/tenants/{tenantId}/cashRegisters/{cashRegisterId}": {
+      "schema": "CashRegister",
+      "description": "Cash register sessions"
+    }
+  }
+}

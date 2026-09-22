@@ -1,0 +1,6 @@
+{
+  "name": "Glowfy Hub",
+  "description": "SaaS Multi-Tenant White-Label Vertical Engine for Beauty, Salons, Barbershops & Aesthetics",
+  "requestFramePermissions": ["notifications"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

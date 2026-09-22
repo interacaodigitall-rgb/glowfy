@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email in ['admin@glowfyhub.com', 'interacaodigitall@gmail.com'] ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin')
+      );
+    }
+
+    // Health Check endpoint
+    match /_health/{docId} {
+      allow read, write: if true;
+    }
+
+    // ==========================================
+    // 1. Coleção USERS (Super Admins e Comerciantes)
+    // ==========================================
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // ==========================================
+    // 2. Coleção STORES (Lojas e Estabelecimentos)
+    // ==========================================
+    match /stores/{storeDocId} {
+      allow read, write: if true;
+
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // ==========================================
+    // 3. Coleção TENANTS (White-Label & Subcollections)
+    // ==========================================
+    match /tenants/{tenantId} {
+      allow read, write: if true;
+
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // Fallback permissivo para qualquer coleção sincronizada da plataforma
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
