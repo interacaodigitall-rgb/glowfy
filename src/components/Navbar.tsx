@@ -13,10 +13,12 @@ import {
   Store,
   Bell,
   CheckCircle2,
-  Calendar
+  Calendar,
+  KeyRound
 } from 'lucide-react';
 import { subscribeToTenantNotifications, markNotificationAsRead } from '../features/notifications/notificationService';
 import { TenantNotification } from '../types';
+import { ChangePasswordModal } from './modals/ChangePasswordModal';
 
 interface NavbarProps {
   onOpenPublicPortal: (mode?: 'mobile' | 'pc') => void;
@@ -36,6 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [notifications, setNotifications] = useState<TenantNotification[]>([]);
 
   useEffect(() => {
@@ -309,6 +312,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={() => {
                     setUserMenuOpen(false);
+                    setIsChangePasswordOpen(true);
+                  }}
+                  className="w-full flex items-center space-x-2 p-2 hover:bg-gray-50 text-[#111827] rounded-lg transition-colors font-medium"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-[#8C6D23]" />
+                  <span>Alterar Palavra-passe</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setUserMenuOpen(false);
                     onOpenLogin('super_admin');
                   }}
                   className="w-full flex items-center space-x-2 p-2 hover:bg-gray-50 text-[#111827] rounded-lg transition-colors"
@@ -345,6 +359,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
     </header>
   );
 };

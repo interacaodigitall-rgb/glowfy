@@ -29,7 +29,9 @@ import {
   Edit3,
   RotateCcw,
   AlertTriangle,
-  Layers
+  Layers,
+  Database,
+  RefreshCw
 } from 'lucide-react';
 import { BusinessType, TenantProfile } from '../../types';
 import { BUSINESS_TYPES } from '../../utils/businessTypes';
@@ -44,7 +46,9 @@ import {
   getSampleTenantsPreset,
   seedSampleTenants
 } from '../../services/tenantService';
+import { triggerFirebaseToPostgresMigration, fetchDatabaseStatus } from '../../services/cloudDb';
 import { SUPER_ADMIN_EMAIL } from '../../config/firebase';
+import { ChangePasswordModal } from '../modals/ChangePasswordModal';
 
 export const SaasMasterView: React.FC = () => {
   const { 
@@ -100,6 +104,29 @@ export const SaasMasterView: React.FC = () => {
   const [showResetAllModal, setShowResetAllModal] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+
+  // Migration state
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [migrationStats, setMigrationStats] = useState<any>(null);
+  const [showMasterChangePasswordModal, setShowMasterChangePasswordModal] = useState(false);
+
+  const handleRunDatabaseMigration = async () => {
+    setIsMigrating(true);
+    try {
+      const res = await triggerFirebaseToPostgresMigration();
+      if (res.success) {
+        setMigrationStats(res.stats);
+        showToast('Migração para Supabase / PostgreSQL concluída com sucesso!');
+        await refreshTenantData();
+      } else {
+        showToast('Aviso: ' + (res.message || 'Erro durante a migração'));
+      }
+    } catch (err: any) {
+      showToast('Erro ao executar migração: ' + err?.message);
+    } finally {
+      setIsMigrating(false);
+    }
+  };
 
   // Copy helpers
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -456,6 +483,15 @@ export const SaasMasterView: React.FC = () => {
 
         <div className="flex items-center flex-wrap gap-2.5">
           <button
+            onClick={() => setShowMasterChangePasswordModal(true)}
+            className="px-3.5 py-2 bg-white hover:bg-gray-50 text-[#111827] rounded-lg border border-gray-300 text-xs font-semibold transition-colors flex items-center space-x-1.5 shadow-sm"
+            title="Alterar Palavra-passe do Super Admin"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-[#8C6D23]" />
+            <span>Alterar Senha Master</span>
+          </button>
+
+          <button
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2 bg-[#C5A059] hover:bg-[#B38F46] text-white font-semibold text-xs rounded-lg transition-colors shadow-sm flex items-center space-x-2"
           >
@@ -513,12 +549,57 @@ export const SaasMasterView: React.FC = () => {
         </div>
 
         <div className="bg-white border border-gray-200 p-5 rounded-xl space-y-1 shadow-sm">
-          <p className="text-xs text-[#6B7280] font-medium">Admin & Banco Firebase</p>
+          <p className="text-xs text-[#6B7280] font-medium">Banco Relacional Activo</p>
           <div className="flex items-center space-x-2 pt-1">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-bold text-emerald-700">Autorizado: {SUPER_ADMIN_EMAIL.split('@')[0]}</span>
+            <span className="text-xs font-bold text-emerald-700">Supabase / PostgreSQL</span>
           </div>
-          <p className="text-[10px] text-[#6B7280] font-mono truncate">{SUPER_ADMIN_EMAIL}</p>
+          <p className="text-[10px] text-gray-500 font-medium">Drizzle ORM • Multi-tenant</p>
+        </div>
+      </div>
+
+      {/* Database Migration & Cloud Sync Card */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-xl p-5 shadow-sm border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start space-x-3.5">
+          <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-400">
+            <Database className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2 flex-wrap">
+              <h3 className="text-sm font-bold text-white">
+                Base de Dados Supabase (PostgreSQL) Operacional
+              </h3>
+              <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30 uppercase">
+                Ativo & Sincronizado
+              </span>
+              <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-mono border border-indigo-500/30">
+                Projeto: <strong>glowfy</strong> (<code className="text-emerald-300">rfcgmouitpizvaxfribw</code>)
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+              Todos os módulos (Agendamentos, Clientes, Profissionais, Serviços, Vendas POS, Stock e Configurações) agora persistem de forma relacional com Drizzle ORM e isolamento por loja.
+            </p>
+            {migrationStats && (
+              <div className="pt-2 flex flex-wrap gap-2 text-[11px] text-emerald-300">
+                <span className="bg-white/10 px-2 py-0.5 rounded">🏢 {migrationStats.tenants} Lojas</span>
+                <span className="bg-white/10 px-2 py-0.5 rounded">👥 {migrationStats.users} Usuários</span>
+                <span className="bg-white/10 px-2 py-0.5 rounded">✂️ {migrationStats.services} Serviços</span>
+                <span className="bg-white/10 px-2 py-0.5 rounded">📅 {migrationStats.appointments} Agendamentos</span>
+                <span className="bg-white/10 px-2 py-0.5 rounded">📦 {migrationStats.products} Produtos</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleRunDatabaseMigration}
+            disabled={isMigrating}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center space-x-2 shrink-0 shadow"
+          >
+            <RefreshCw className={`w-4 h-4 ${isMigrating ? 'animate-spin' : ''}`} />
+            <span>{isMigrating ? 'Migrando Dados...' : 'Migrar / Sincronizar Supabase'}</span>
+          </button>
         </div>
       </div>
 
@@ -1438,6 +1519,12 @@ export const SaasMasterView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Super Admin Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showMasterChangePasswordModal}
+        onClose={() => setShowMasterChangePasswordModal(false)}
+      />
     </div>
   );
 };

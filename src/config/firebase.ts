@@ -2,20 +2,20 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getDatabase, ref, get, set, update, remove, onValue } from 'firebase/database';
+import appletConfig from '../../firebase-applet-config.json';
 
-// Prioritize environment variables injected by Vercel or .env
-// Fallback to the user's production "glowfyhub" Firebase project
+// Prioritize environment variables injected by Vercel or .env, fallback to applet config, then defaults
 export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDNlV8kcdZO08EQj--iYxohq21qvZeHH48",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "glowfyhub.firebaseapp.com",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || appletConfig?.apiKey || "AIzaSyDNlV8kcdZO08EQj--iYxohq21qvZeHH48",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig?.authDomain || "glowfyhub.firebaseapp.com",
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://glowfyhub-default-rtdb.firebaseio.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "glowfyhub",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "glowfyhub.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "571982162818",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:571982162818:web:97d84343ebcf2476aabd9b"
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || appletConfig?.projectId || "glowfyhub",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig?.storageBucket || "glowfyhub.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig?.messagingSenderId || "571982162818",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || appletConfig?.appId || "1:571982162818:web:97d84343ebcf2476aabd9b"
 };
 
-const customDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
+const customDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || appletConfig?.firestoreDatabaseId;
 
 // Initialize Firebase safely
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);

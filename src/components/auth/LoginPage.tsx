@@ -130,6 +130,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       } else if (onClose) {
         onClose();
       }
+    } else {
+      setMerchantError('Palavra-passe de comerciante incorreta para este estabelecimento.');
     }
   };
 
